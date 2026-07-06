@@ -230,19 +230,16 @@ class MemoryAPI:
         n = int(list(self._backend.query(count_q))[0]["n"].value)
 
         if soft:
-            # Set validTo = now on matching reification nodes and clear any
-            # validFrom, producing a "tombstone marker" (an end with no start)
-            # that the default-recall filter drops while history still keeps
-            # it. Clearing validFrom is what makes a soft-forgotten fact
-            # disappear from the present view under the task-9 recall
-            # contract (which keeps complete validFrom..validTo windows).
+            # Set validTo = now on matching reification nodes. The default-
+            # recall filter (!BOUND(?vt)) drops these from the current view
+            # while history (include_history=True) still retains the full
+            # validFrom..validTo window. validFrom is left intact so the
+            # historical record is complete.
             upd = (
                 f"{prologue}\n"
-                f"DELETE {{ ?f <{PROPS['validFrom']}> ?vf . "
-                f"?f <{PROPS['validTo']}> ?vt }} "
+                f"DELETE {{ ?f <{PROPS['validTo']}> ?vt }} "
                 f"INSERT {{ ?f <{PROPS['validTo']}> {sparql._dt(now)} }} "
                 f"WHERE {{ {match_body} . "
-                f"OPTIONAL {{ ?f <{PROPS['validFrom']}> ?vf }} . "
                 f"OPTIONAL {{ ?f <{PROPS['validTo']}> ?vt }} }}"
             )
             self._backend.update(upd)

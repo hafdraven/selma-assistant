@@ -6,12 +6,12 @@ from selma.memory.exceptions import ProvenanceError
 
 
 def test_relate_stores_relationship(fresh_api):
+    # Open-ended relationship (no valid_to): still current, so recall sees it.
     fresh_api.relate(NamedNode("http://ex/alice"),
                      NamedNode("http://ex/workedFor"),
                      NamedNode("http://ex/bob"),
                      stated_by=NamedNode("selma:self"),
-                     valid_from="2020-01-01T00:00:00",
-                     valid_to="2023-01-01T00:00:00")
+                     valid_from="2020-01-01T00:00:00")
     rows = fresh_api.recall(NamedNode("http://ex/alice"),
                             NamedNode("http://ex/workedFor"))
     assert len(rows) == 1

@@ -127,10 +127,11 @@ def build_recall_select(s, p, o, *, as_of, include_history) -> str:
         unbound OR validFrom <= as_of, and validTo is unbound OR
         validTo >= as_of.
       - include_history=False, as_of None: keep facts that are still current.
-        A fact with a bounded validTo but no validFrom is a superseded/
-        tombstoned marker (an end with no start) and is dropped; a fact
-        with no validTo, or with a complete validFrom..validTo window, is
-        kept.
+        A fact is current only if it has no validTo (it hasn't been
+        superseded or expired). A fact with a bounded validTo is dropped
+        regardless of whether validFrom is bound — `supersede` sets
+        validTo=now on the old fact while leaving its validFrom intact, so
+        the old fact must disappear from the current view.
     """
     conds = []
     if s is not None:
@@ -156,10 +157,8 @@ def build_recall_select(s, p, o, *, as_of, include_history) -> str:
         )
         filt = "FILTER(" + " && ".join(conds) + ")" if conds else ""
     else:
-        # Drop only superseded markers: a validTo with no validFrom start
-        # (validFrom unbound). Facts with an unbounded validTo, or with a
-        # complete validFrom..validTo window, are kept.
-        conds.append("!BOUND(?vt) || BOUND(?vf)")
+        # A fact is current only if it has no validTo (not superseded/expired).
+        conds.append("!BOUND(?vt)")
         filt = "FILTER(" + " && ".join(conds) + ")" if conds else ""
 
     where_body = f"{{ {body}"
