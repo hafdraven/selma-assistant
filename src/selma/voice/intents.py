@@ -7,7 +7,7 @@ mandatory), calls the relevant Selma subsystem, and builds a ``VoiceResponse``.
 """
 from __future__ import annotations
 
-from pyoxigraph import NamedNode
+from pyoxigraph import Literal, NamedNode
 
 from .exceptions import MissingSlotError
 from .models import VoiceContext, VoiceResponse
@@ -34,8 +34,9 @@ def handle_remember(slots: dict[str, str], ctx: VoiceContext) -> VoiceResponse:
     subject = slots["subject"]
     predicate = slots["predicate"]
     obj = slots["object"]
+    # Subject and predicate are URIs; object is a literal (voice input is text).
     ctx.memory.remember(
-        NamedNode(subject), NamedNode(predicate), NamedNode(obj),
+        NamedNode(subject), NamedNode(predicate), Literal(obj),
         stated_by=NamedNode(_SELF),
     )
     return VoiceResponse("Remembered.", card={"subject": subject})
