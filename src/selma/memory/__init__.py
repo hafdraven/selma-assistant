@@ -1,0 +1,1 @@
+"""selma.memory: semantic RDF/SPARQL memory core."""
