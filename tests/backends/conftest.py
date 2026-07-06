@@ -8,7 +8,12 @@ import pytest
 
 
 def _backends():
-    """Return (id, factory) pairs for every implemented backend."""
+    """Return (id, factory) pairs for every implemented backend.
+
+    A backend is only included if its import succeeds AND an instance can be
+    constructed without raising (stubs raise ``NotImplementedError`` on
+    ``__init__`` and are therefore excluded from conformance parametrization).
+    """
     impls = []
     try:
         from selma.memory.backends.embedded import EmbeddedOxigraph
@@ -22,14 +27,18 @@ def _backends():
     try:
         from selma.memory.backends.remote import RemoteTriplestore
 
+        RemoteTriplestore(endpoint="http://example/")  # probe: stubs raise NotImplementedError
+
         impls.append(("remote", lambda tmp_path: RemoteTriplestore(endpoint="http://example/")))
-    except ImportError:
+    except (ImportError, NotImplementedError):
         pass
     try:
         from selma.memory.backends.managed import ManagedRDF
 
+        ManagedRDF(endpoint="http://example/")  # probe: stubs raise NotImplementedError
+
         impls.append(("managed", lambda tmp_path: ManagedRDF(endpoint="http://example/")))
-    except ImportError:
+    except (ImportError, NotImplementedError):
         pass
     return impls
 
