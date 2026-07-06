@@ -4,7 +4,7 @@ from __future__ import annotations
 import secrets
 from datetime import datetime, timezone
 
-from pyoxigraph import BlankNode, NamedNode
+from pyoxigraph import BlankNode
 
 from . import sparql
 from .exceptions import ProvenanceError
@@ -60,11 +60,9 @@ class MemoryAPI:
             raise ProvenanceError("stated_by is required")
         if subject is None:
             subject = BlankNode(f"fact{secrets.token_hex(4)}")
-        ctx = NamedNode(
-            f"selma:graph:{stated_by.value if isinstance(stated_by, NamedNode) else 'self'}")
         fact = BlankNode(f"fact{secrets.token_hex(4)}")
         update = sparql.build_remember_update(
-            fact, subject, predicate, obj, ctx, stated_by=stated_by,
+            fact, subject, predicate, obj, stated_by=stated_by,
             confidence=confidence, valid_from=valid_from, valid_to=valid_to,
             source=source, now=_now_iso())
         self._backend.update(update)
@@ -74,11 +72,9 @@ class MemoryAPI:
                valid_from=None, valid_to=None):
         if stated_by is None:
             raise ProvenanceError("stated_by is required")
-        ctx = NamedNode(
-            f"selma:graph:{stated_by.value if isinstance(stated_by, NamedNode) else 'self'}")
         fact = BlankNode(f"fact{secrets.token_hex(4)}")
         update = sparql.build_relate_update(
-            fact, subject, predicate, obj, ctx, stated_by=stated_by,
+            fact, subject, predicate, obj, stated_by=stated_by,
             valid_from=valid_from, valid_to=valid_to, now=_now_iso())
         self._backend.update(update)
         return subject

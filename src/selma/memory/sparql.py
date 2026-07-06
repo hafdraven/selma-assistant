@@ -92,16 +92,15 @@ def _fact_clauses(fact, s, p, o, *, stated_by, confidence, valid_from,
     return [f"INSERT DATA {{ {' . '.join(triples)} }}"]
 
 
-def build_remember_update(fact, s, p, o, ctx, *, stated_by, confidence,
+def build_remember_update(fact, s, p, o, *, stated_by, confidence,
                           valid_from, valid_to, source, now) -> str:
     """INSERT a reified Fact plus its temporal/provenance metadata.
 
     `fact` is the blank-node fact subject that carries the metadata and
-    reification of the (s, p, o) triple. `ctx` is the named graph that
-    encodes provenance (kept for API compatibility; the reified fact is
-    stored in the default graph so metadata is queryable by plain SELECTs
-    and per-fact validity windows do not conflate across facts sharing a
-    subject). The remaining arguments are as in the Task 8 signature.
+    reification of the (s, p, o) triple. The reified fact is stored in the
+    default graph so metadata is queryable by plain SELECTs and per-fact
+    validity windows do not conflate across facts sharing a subject. The
+    remaining arguments are as in the Task 8 signature.
     """
     clauses = _fact_clauses(fact, s, p, o, stated_by=stated_by,
                            confidence=confidence, valid_from=valid_from,
@@ -178,6 +177,13 @@ def build_find_select(class_uri: str, *, filters, as_of) -> str:
     a UNION so the store doesn't need a reasoner. Instance type triples are
     matched inside `GRAPH ?g { ... }` so that instances inserted into named
     graphs (e.g. via raw INSERT DATA) are found.
+
+    When `as_of` is given, the type match is joined (optionally) to each
+    subject's reified facts in the default graph and filtered to keep only
+    instances that have a fact whose validFrom/validTo window includes
+    `as_of`. Subjects with no reified facts (no metadata at all) are kept
+    unchanged — `!BOUND(?vf)` admits them — so `as_of` never silently drops
+    freshly inserted type-only instances.
     """
     from . import terms
     from .entailment import subclass_expand
@@ -189,10 +195,29 @@ def build_find_select(class_uri: str, *, filters, as_of) -> str:
             f"?s <{terms.PROPS.get(k, k)}> {serialize_term(v)}"
             for k, v in filters.items())
         type_clauses = "{" + type_clauses + " . " + extra + "}"
-    return (f"{_prologue()}\nSELECT DISTINCT ?s WHERE {{ {type_clauses} }}")
+
+    where_body = type_clauses
+    filt = ""
+    if as_of is not None:
+        as_of_dt = _dt(as_of)
+        # Join each ?s to any reified fact about it in the default graph and
+        # keep only ?s whose (best) fact validity window includes as_of.
+        where_body = (
+            "{ " + type_clauses + " } "
+            f"OPTIONAL {{ ?f <{RDF_SUBJECT}> ?s ; "
+            f"<{RDF_PREDICATE}> ?p ; <{RDF_OBJECT}> ?o . "
+            f"?f <{PROPS['validFrom']}> ?vf . "
+            f"OPTIONAL {{ ?f <{PROPS['validTo']}> ?vt }} }} "
+            f"FILTER((!BOUND(?vf) || ?vf <= {as_of_dt}) && "
+            f"(!BOUND(?vt) || ?vt >= {as_of_dt}))"
+        )
+        # DISTINCT collapses duplicate ?s produced by multiple matching facts.
+        # Wrap so the OPTIONAL+FILTER apply across the UNION of type clauses.
+        where_body = "{ " + where_body + " }"
+    return f"{_prologue()}\nSELECT DISTINCT ?s WHERE {{ {where_body} }}"
 
 
-def build_relate_update(fact, s, p, o, ctx, *, stated_by, valid_from,
+def build_relate_update(fact, s, p, o, *, stated_by, valid_from,
                         valid_to, now) -> str:
     """INSERT a reified Relationship assertion plus its temporal/provenance
     metadata. Structurally similar to build_remember_update but without
