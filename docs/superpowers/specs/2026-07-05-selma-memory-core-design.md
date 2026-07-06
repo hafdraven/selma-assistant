@@ -206,6 +206,10 @@ Semantics:
   retained (visible to time-window queries), never deleted.
 - `forget(soft=True)` sets `validTo=now` (logical delete); `forget(soft=False)` physically
   removes the quad (guarded; requires a reason, and is logged to the audit graph first).
+  At least one of `subject`/`predicate`/`obj` must be non-None — a bare `forget()` with no
+  match pattern is rejected with `QueryError` to prevent wiping the store. A dedicated
+  `wipe()` admin method exists separately for full-store resets and is not part of the
+  typed client API.
 - `ask` is the passthrough SPARQL escape hatch.
 
 ### `/describe` self-description
